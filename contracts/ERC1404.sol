@@ -93,7 +93,7 @@ contract RestrictedMessages {
     uint8 public constant TIMELOCK_FAILURE = 3;
     
     string public constant SUCCESS_MSG = "SUCCESS";
-    string public constant PAUSED_FAILURE_MSG = "ERROR: All transfer id paused now";
+    string public constant PAUSED_FAILURE_MSG = "ERROR: All transfer is paused now";
     string public constant WHITELIST_FAILURE_MSG = "ERROR: Wallet is not whitelisted";
     string public constant TIMELOCK_FAILURE_MSG = "ERROR: Wallet is locked";
     string public constant UNKNOWN = "ERROR: Unknown";
@@ -120,6 +120,7 @@ contract ERC1404 is IERC1404, RestrictedMessages, Ownable {
     
     // All checks of transfer function
     // If contract paused, sender wallet locked and wallet not whitelisted then return error code else success
+    // Note, Now there is no use of amount for restriction, but might be in the future
     function detectTransferRestriction (address from, address to, uint256 amount) public override view returns (uint8) {
         if(checker.paused()){ 
             return PAUSED_FAILURE; 

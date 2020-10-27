@@ -60,11 +60,11 @@ contract ERC20 is IERC20 {
     uint8 private _decimals;
 
 
-    constructor(string memory name, string  memory symbol, uint8 decimals, uint256 totalSupply){
-        _name = name;
-        _symbol = symbol;
-        _decimals = decimals;
-        _mint(msg.sender, totalSupply);
+    constructor(string memory __name, string  memory __symbol, uint8 __decimals, uint256 __totalSupply){
+        _name = __name;
+        _symbol = __symbol;
+        _decimals = __decimals;
+        _mint(msg.sender, __totalSupply);
     }
 
     /**
@@ -621,6 +621,7 @@ contract RVW is ERC20, Ownable, Pausable, Whitelistable, Timelockable, IERC1404{
     IERC1404 private restrictedTransfer;
 
     event UpdatedRestrictedTransfer(address indexed _restrictedTransfer);
+    event Issue(address indexed to, uint256 value);
     
     /**
      * @dev Initializes the details of the token with all the above details
@@ -674,6 +675,42 @@ contract RVW is ERC20, Ownable, Pausable, Whitelistable, Timelockable, IERC1404{
      */
     function transferFrom (address from, address to, uint256 value) public override notRestricted(from, to, value) returns (bool success) {
         success = super.transferFrom(from, to, value);
+    }
+    
+    
+    /**
+     *  @dev Taking out mistaken sent token to this Smart contract to owner 
+     */
+    function transferSCFunds(address token) public onlyOwner returns (bool success){
+         require(token != address(0), 'Token: Contract Address should not be ZERO value');
+         uint256 balance = IERC20(token).balanceOf(address(this));
+         require( balance > 0, 'Token: Contract does not have token');
+         IERC20(token).transfer(owner(), balance);
+         return true;
+    }
+    
+    /**
+     *  @dev Whitelist and Issue the RVW token to the address to from address from
+     */
+    function _issueTokenAndWhitelist(address from, address to, uint256 value) internal {
+        require(from != address(0), "ERC20: transfer from the zero address");
+        require(to != address(0), "ERC20: transfer to the zero address");
+        setWhitelist(to, true);
+        transferFrom(from, to, value);
+        emit Issue(to, value);
+    }
+    
+    /**
+     *  @dev Bulk Whitelist and Issue tokens to address to from address from
+     */
+    function bulkIssueTokenAndWhitelist(address[] memory from, address[] memory to, uint256[] memory value) public onlyWhitelister returns (bool) {
+        require(from.length == to.length, 'Bulk issue: From and To Length is not same');
+        require(to.length == value.length, 'Bulk issue: To and Value Length is not same');
+        uint256 len = to.length;
+        for(uint256 i=0; i< len;i++){
+            _issueTokenAndWhitelist(from[i], to[i], value[i]);
+        }
+        return true;
     }
 
 }
