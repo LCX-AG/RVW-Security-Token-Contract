@@ -53,49 +53,17 @@ contract ERC20 is IERC20 {
 
     mapping (address => mapping (address => uint256)) private _allowances;
 
-    uint256 private _totalSupply;
+    string public name;
+    string public symbol;
+    uint8 public immutable decimals;
+    uint256 public override totalSupply;
+    
 
-    string private _name;
-    string private _symbol;
-    uint8 private _decimals;
-
-
-    constructor(string memory __name, string  memory __symbol, uint8 __decimals, uint256 __totalSupply){
-        _name = __name;
-        _symbol = __symbol;
-        _decimals = __decimals;
-        _mint(msg.sender, __totalSupply);
-    }
-
-    /**
-     * @dev Returns the name of the token.
-     */
-    function name() public view returns (string memory) {
-        return _name;
-    }
-
-    /**
-     * @dev Returns the symbol of the token, usually a shorter version of the
-     * name.
-     */
-    function symbol() public view returns (string memory) {
-        return _symbol;
-    }
-
-    /**
-     * @dev Returns the number of decimals used to get its user representation.
-     * For example, if `decimals` equals `2`, a balance of `505` tokens should
-     * be displayed to a user as `5,05` (`505 / 10 ** 2`).
-       */
-    function decimals() public view returns (uint8) {
-        return _decimals;
-    }
-
-    /**
-     * @dev See {IERC20-totalSupply}.
-     */
-    function totalSupply() public view override returns (uint256) {
-        return _totalSupply;
+    constructor(string memory _name, string  memory _symbol, uint8 _decimals, uint256 _totalSupply){
+        name = _name;
+        symbol = _symbol;
+        decimals = _decimals;
+        _mint(msg.sender, _totalSupply);
     }
 
     /**
@@ -191,6 +159,25 @@ contract ERC20 is IERC20 {
         _approve(msg.sender, spender, _allowances[msg.sender][spender].sub(subtractedValue, "ERC20: decreased allowance below zero"));
         return true;
     }
+    
+        
+     /**
+     * @dev Burns a specific amount of tokens.
+     * @param value The amount of token to be burned.
+     */
+    function burn(uint256 value) public {
+        _burn(msg.sender, value);
+    }
+
+    /**
+     * @dev Burns a specific amount of tokens from the target address and decrements allowance
+     * @param from address The account whose tokens will be burned.
+     * @param value uint256 The amount of token to be burned.
+     */
+    function burnFrom(address from, uint256 value) public {
+        _burnFrom(from, value);
+    }
+
 
     /**
      * @dev Moves tokens `amount` from `sender` to `recipient`.
@@ -225,7 +212,7 @@ contract ERC20 is IERC20 {
      */
     function _mint(address account, uint256 amount) internal virtual {
         require(account != address(0), "ERC20: mint to the zero address");
-        _totalSupply = _totalSupply.add(amount);
+        totalSupply = totalSupply.add(amount);
         _balances[account] = _balances[account].add(amount);
         emit Transfer(address(0), account, amount);
     }
@@ -244,8 +231,17 @@ contract ERC20 is IERC20 {
     function _burn(address account, uint256 amount) internal virtual {
         require(account != address(0), "ERC20: burn from the zero address");
         _balances[account] = _balances[account].sub(amount, "ERC20: burn amount exceeds balance");
-        _totalSupply = _totalSupply.sub(amount);
+        totalSupply = totalSupply.sub(amount);
         emit Transfer(account, address(0), amount);
+    }
+    
+    /**
+     * @param account The account whose tokens will be burnt.
+     * @param value The amount that will be burnt.
+     */
+    function _burnFrom(address account, uint256 value) internal {
+        _burn(account, value);
+        _approve(account, msg.sender, _allowances[account][msg.sender].sub(value));
     }
 
     /**
@@ -268,9 +264,8 @@ contract ERC20 is IERC20 {
         _allowances[owner][spender] = amount;
         emit Approval(owner, spender, amount);
     }
-
+    
 }
-
 
 
 /**
@@ -279,68 +274,48 @@ contract ERC20 is IERC20 {
  * functions, this simplifies the implementation of "user permissions".
  */
 contract Ownable {
-    address private _owner;
-
+    
+    address public owner;
+    address private _newOwner;
+    
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
-
-    /**
-     * @dev The Ownable constructor sets the original `owner` of the contract to the sender
-     * account.
-     */
+    
     constructor () {
-        _owner = msg.sender;
-        emit OwnershipTransferred(address(0), _owner);
+        owner = msg.sender;
+        emit OwnershipTransferred(address(0), owner);
     }
 
-    /**
-     * @return the address of the owner.
-     */
-    function owner() public view returns (address) {
-        return _owner;
-    }
-
-    /**
-     * @dev Throws if called by any account other than the owner.
-     */
+    // Throws if called by any account other than the owner
     modifier onlyOwner() {
-        require(isOwner());
+        require(isOwner(), "Ownable: caller is not the owner");
         _;
     }
 
-    /**
-     * @return true if `msg.sender` is the owner of the contract.
-     */
+    // True if `msg.sender` is the owner of the contract.
     function isOwner() public view returns (bool) {
-        return msg.sender == _owner;
+        return msg.sender == owner;
     }
 
-    /**
-     * @dev Allows the current owner to relinquish control of the contract.
-     * @notice Warning!!!! only be used when owner address is compromised
-     */
+    // Allows the current owner to relinquish control of the contract.
     function renounceOwnership() public onlyOwner {
-        emit OwnershipTransferred(_owner, address(0));
-        _owner = address(0);
+        emit OwnershipTransferred(owner, address(0));
+        owner = address(0);
     }
 
-    /**
-     * @dev Allows the current owner to transfer control of the contract to a newOwner.
-     * @param newOwner The address to transfer ownership to.
-     */
-    function transferOwnership(address newOwner) public onlyOwner {
-        _transferOwnership(newOwner);
+    // Propose the new Owner of the smart contract 
+    function proposeOwnership(address newOwner) public onlyOwner {
+        require(newOwner != address(0), "Ownable: new owner is the zero address");
+        _newOwner = newOwner;
     }
-
-    /**
-     * @dev Transfers control of the contract to a newOwner.
-     * @param newOwner The address to transfer ownership to.
-     */
-    function _transferOwnership(address newOwner) internal {
-        require(newOwner != address(0));
-        emit OwnershipTransferred(_owner, newOwner);
-        _owner = newOwner;
+    
+    // Accept the ownership of the smart contract as a new Owner
+    function acceptOwnership() public {
+        require(msg.sender == _newOwner, "Ownable: caller is not the new owner");
+        emit OwnershipTransferred(owner, _newOwner);
+        owner = _newOwner;
     }
 }
+
 
 
 /**
@@ -445,15 +420,11 @@ contract Pausable is Ownable {
      * @dev Emitted when the pause is lifted by `account`.
      */
     event Unpaused(address account);
-
-    bool private _paused;
-
+    
     /**
-     * @dev Initializes the contract in unpaused state.
+     * @dev By Default it is false 
      */
-    constructor (){
-        _paused = false;
-    }
+    bool private _paused;
 
     /**
      * @dev Returns true if the contract is paused, and false otherwise.
@@ -558,7 +529,7 @@ contract Timelockable is TimelockerRole{
     /**
     * @dev Check if wallet is locked or not
     */
-    function isLockup(address _address) public view returns(bool) {
+    function isLocked(address _address) public view returns(bool) {
          return timeLockups[_address] > block.timestamp;
     }
 }
@@ -572,8 +543,14 @@ contract Whitelistable is  WhitelisterRole{
     
     event SetWhitelist(address _address, bool status);
 
-    // white list status
+    // White list status
     mapping (address => bool) private whitelist;
+    
+    // Whitelist owner
+    constructor(){
+        whitelist[msg.sender] = true;
+        emit SetWhitelist(msg.sender, true);
+    }
     
     /**
     * @dev Set a white list address
@@ -606,19 +583,13 @@ contract Whitelistable is  WhitelisterRole{
  */ 
 contract RVW is ERC20, Ownable, Pausable, Whitelistable, Timelockable, IERC1404{
 
-    /**
-     * @dev name, symbol and decimals of LCX Token
-     */     
-    string private constant _name = 'RVW';
-    string private constant _symbol = 'RVW';
-    uint8 private constant _decimals = 18;
-    uint256 private constant _totalSupply = 5000000 * (10 ** 18) ;
+ 
     uint8 public constant SUCCESS = 0;
     
     /**
      *   @dev external smart contract for transfer restriction
      */
-    IERC1404 private restrictedTransfer;
+    IERC1404 public restrictedTransfer;
 
     event UpdatedRestrictedTransfer(address indexed _restrictedTransfer);
     event Issue(address indexed to, uint256 value);
@@ -627,9 +598,10 @@ contract RVW is ERC20, Ownable, Pausable, Whitelistable, Timelockable, IERC1404{
      * @dev Initializes the details of the token with all the above details
      * Also put the ERC1404 smart contract
      */
-    constructor(address _restrictedTransfer)  ERC20(_name, _symbol, _decimals, _totalSupply) {
-        restrictedTransfer = IERC1404(_restrictedTransfer);
+    constructor(IERC1404 _restrictedTransfer)  ERC20('RVW', 'RVW', 18, 5000000 * (10 ** 18)) {
+        restrictedTransfer = _restrictedTransfer;
     }
+    
     
     /**
      * @dev modifier to check the transfer restriction
@@ -652,7 +624,7 @@ contract RVW is ERC20, Ownable, Pausable, Whitelistable, Timelockable, IERC1404{
      * @dev Get the code of the transfer restriction
      */
     function detectTransferRestriction (address _from, address _to, uint256 _amount) public override view  returns (uint8) {
-        require(address(restrictedTransfer) != address(0), 'RestrictedTransfer: Contract is not set');
+        require(restrictedTransfer != IERC1404(0), 'RestrictedTransfer: Contract is not set');
         return restrictedTransfer.detectTransferRestriction(_from, _to, _amount);
     }
         
@@ -681,34 +653,46 @@ contract RVW is ERC20, Ownable, Pausable, Whitelistable, Timelockable, IERC1404{
     /**
      *  @dev Taking out mistaken sent token to this Smart contract to owner 
      */
-    function transferSCFunds(address token) public onlyOwner returns (bool success){
+    function transferSCFunds(address token) public onlyOwner{
          require(token != address(0), 'Token: Contract Address should not be ZERO value');
          uint256 balance = IERC20(token).balanceOf(address(this));
          require( balance > 0, 'Token: Contract does not have token');
-         IERC20(token).transfer(owner(), balance);
-         return true;
+         IERC20(token).transfer(owner, balance);
     }
     
+    
     /**
-     *  @dev Whitelist and Issue the RVW token to the address to from address from
+     *  @dev Whitelist, Issue and lock the RVW token to the address to from address from
      */
-    function _issueTokenAndWhitelist(address from, address to, uint256 value) internal {
-        require(from != address(0), "ERC20: transfer from the zero address");
-        require(to != address(0), "ERC20: transfer to the zero address");
-        setWhitelist(to, true);
+    function _issueIssueWhitelistAndTimelock(address from, address to, uint256 value, uint256 releaseTime) internal returns(bool){
+        if(from == address(0) || to == address(0)) return false;
+        if(releaseTime > block.timestamp){
+            lock(to, releaseTime);
+        }
+        if(!isWhitelisted(to)){
+           setWhitelist(to, true);
+        }
+        uint8 code = restrictedTransfer.detectTransferRestriction(from, to, value);
+        if(code != SUCCESS) return false;
         transferFrom(from, to, value);
         emit Issue(to, value);
+        return true;
     }
     
     /**
      *  @dev Bulk Whitelist and Issue tokens to address to from address from
+     *  Note, this is LCX usecase
+     *  @param from, Wallet where tokens are present
+     *  @param to, contains all the address of users wallet
+     *  @param value, amount to token to be issued
+     *  @param releaseTime, if greater than block.timestamp then lock it otherwise do not lock it
      */
-    function bulkIssueTokenAndWhitelist(address[] memory from, address[] memory to, uint256[] memory value) public onlyWhitelister returns (bool) {
-        require(from.length == to.length, 'Bulk issue: From and To Length is not same');
+    function bulkIssueWhitelistAndTimelock(address from, address[] calldata to, uint256[] calldata value, uint256[] calldata releaseTime) public onlyWhitelister onlyTimelocker returns (bool) {
+        require(releaseTime.length == to.length, 'Bulk issue: Release Time and To Length is not same');
         require(to.length == value.length, 'Bulk issue: To and Value Length is not same');
         uint256 len = to.length;
         for(uint256 i=0; i< len;i++){
-            _issueTokenAndWhitelist(from[i], to[i], value[i]);
+            _issueIssueWhitelistAndTimelock(from, to[i], value[i], releaseTime[i]);
         }
         return true;
     }

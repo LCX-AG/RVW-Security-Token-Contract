@@ -23,7 +23,7 @@ interface IERC1404Checks {
     // Check if sender and receiver waller is whitelisted
     function checkWhitelists (address from, address to) external view returns (bool);
     // Check if the sender wallet is locked
-    function isLockup (address _address) external view returns (bool);
+    function isLocked(address wallet) external view returns (bool);
 }
 
 
@@ -35,48 +35,44 @@ interface IERC1404Checks {
  */
 contract Ownable {
     
-    address private _owner;
-
+    address public owner;
+    address private _newOwner;
+    
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     
     constructor () {
-        _owner = msg.sender;
-        emit OwnershipTransferred(address(0), _owner);
-    }
-
-    
-    // Return the address of the owner.
-    function owner() public view returns (address) {
-        return _owner;
+        owner = msg.sender;
+        emit OwnershipTransferred(address(0), owner);
     }
 
     // Throws if called by any account other than the owner
     modifier onlyOwner() {
-        require(isOwner());
+        require(isOwner(), "Ownable: caller is not the owner");
         _;
     }
 
     // True if `msg.sender` is the owner of the contract.
     function isOwner() public view returns (bool) {
-        return msg.sender == _owner;
+        return msg.sender == owner;
     }
 
     // Allows the current owner to relinquish control of the contract.
     function renounceOwnership() public onlyOwner {
-        emit OwnershipTransferred(_owner, address(0));
-        _owner = address(0);
+        emit OwnershipTransferred(owner, address(0));
+        owner = address(0);
     }
 
-    // Allows the current owner to transfer control of the contract to a newOwner.
-    function transferOwnership(address newOwner) public onlyOwner {
-        _transferOwnership(newOwner);
+    // Propose the new Owner of the smart contract 
+    function proposeOwnership(address newOwner) public onlyOwner {
+        require(newOwner != address(0), "Ownable: new owner is the zero address");
+        _newOwner = newOwner;
     }
-   
-    // Transfers control of the contract to a newOwner.
-    function _transferOwnership(address newOwner) internal {
-        require(newOwner != address(0));
-        emit OwnershipTransferred(_owner, newOwner);
-        _owner = newOwner;
+    
+    // Accept the ownership of the smart contract as a new Owner
+    function acceptOwnership() public {
+        require(msg.sender == _newOwner, "Ownable: caller is not the new owner");
+        emit OwnershipTransferred(owner, _newOwner);
+        owner = _newOwner;
     }
 }
 
@@ -87,16 +83,16 @@ contract Ownable {
  */ 
 contract RestrictedMessages {
     
-    uint8 public constant SUCCESS = 0;
-    uint8 public constant PAUSED_FAILURE = 1;
-    uint8 public constant WHITELIST_FAILURE = 2;
-    uint8 public constant TIMELOCK_FAILURE = 3;
+    uint8 internal constant SUCCESS = 0;
+    uint8 internal constant PAUSED_FAILURE = 1;
+    uint8 internal constant WHITELIST_FAILURE = 2;
+    uint8 internal constant TIMELOCK_FAILURE = 3;
     
-    string public constant SUCCESS_MSG = "SUCCESS";
-    string public constant PAUSED_FAILURE_MSG = "ERROR: All transfer is paused now";
-    string public constant WHITELIST_FAILURE_MSG = "ERROR: Wallet is not whitelisted";
-    string public constant TIMELOCK_FAILURE_MSG = "ERROR: Wallet is locked";
-    string public constant UNKNOWN = "ERROR: Unknown";
+    string internal constant SUCCESS_MSG = "SUCCESS";
+    string internal constant PAUSED_FAILURE_MSG = "ERROR: All transfer is paused now";
+    string internal constant WHITELIST_FAILURE_MSG = "ERROR: Wallet is not whitelisted";
+    string internal constant TIMELOCK_FAILURE_MSG = "ERROR: Wallet is locked";
+    string internal constant UNKNOWN = "ERROR: Unknown";
 }
 
 
@@ -109,12 +105,12 @@ contract ERC1404 is IERC1404, RestrictedMessages, Ownable {
     // Checkers contract address, basically RVW token contract address
     IERC1404Checks public checker;
 
-    event UpdatedChecker(address indexed _checker);
+    event UpdatedChecker(IERC1404Checks indexed _checker);
     
     // Update the token contract address
-    function updateChecker(address _checker) public onlyOwner{
-        require(_checker != address(0), "ERC1404: Address should not be zero.");
-        checker = IERC1404Checks(_checker);
+    function updateChecker(IERC1404Checks _checker) public onlyOwner{
+        require(_checker != IERC1404Checks(0), "ERC1404: Address should not be zero.");
+        checker = _checker;
         emit UpdatedChecker(_checker);
     }
     
@@ -128,7 +124,7 @@ contract ERC1404 is IERC1404, RestrictedMessages, Ownable {
         if(!checker.checkWhitelists(from, to)){ 
             return WHITELIST_FAILURE;
         }
-        if(checker.isLockup(from)){ 
+        if(checker.isLocked(from)){ 
             return TIMELOCK_FAILURE;
         }
         return SUCCESS;
