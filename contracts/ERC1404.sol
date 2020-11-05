@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.7.0;
-
 /**
  * @title IERC1404 - Simple Restricted Token Standard 
  * @dev https://github.com/ethereum/eips/issues/1404
